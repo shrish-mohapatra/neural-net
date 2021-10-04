@@ -30,9 +30,9 @@ class Network:
 
     def initNetwork(self):
         # initiate weights
-        l_weights = np.random.randn(3,2)
-        l1_weights = np.random.randn(2,3)
-        l2_weights = np.random.randn(3,4)
+        l_weights = np.random.rand(3,20) /5 -0.1
+        l1_weights = np.random.rand(20,30)/5 -0.1
+        l2_weights = np.random.rand(30,4)/5 -0.1
 
         self.network['weights'] = []
         self.network['weights'].append(l_weights)
@@ -40,9 +40,9 @@ class Network:
         self.network['weights'].append(l2_weights)
 
         # initiate biases
-        l_biases = np.random.randn(3) / 10
-        l1_biases = np.random.randn(2) / 10
-        l2_biases = np.random.randn(3) / 10
+        l_biases = np.random.rand(3) / 10 -0.05
+        l1_biases = np.random.rand(20) / 10 -0.05
+        l2_biases = np.random.rand(30) / 10 -0.05
 
         self.network['biases'] = []
         self.network['biases'].append(l_biases)
@@ -56,18 +56,15 @@ class Network:
             curWeight = self.network["weights"][l]
             curBias = self.network["biases"][l]
 
-            z = np.add( np.matmul(act, np.transpose(curWeight)), curBias)
+            z = np.add( np.matmul(curWeight,act), curBias)
             act = self.sigmoid(z)
-
-        # print(act)
-            
             
         return act
     
     def cost(self, groundTruth, output):
         return np.sum(np.square(np.subtract(groundTruth, output)))
     
-    def backprop(self, input, groundTruth):
+    def backpropold(self, input, groundTruth):
         act = np.copy(input)
         activations = [input]
         z_vals = []
@@ -93,7 +90,6 @@ class Network:
         for n in range(len(activations[0])):
             dcda = 2 * (activations[0][n] - groundTruth[n])
             gradients["activations"][0][n] = dcda
-        
 
         for l in range(3):
             for n in range(len(activations[l])):
@@ -108,17 +104,54 @@ class Network:
 
                     gradients["weights"][l][n][n2] = dcdw
 
-                    if(l != 2):
+                    if(l!=2):
                         dcda_next_comp = dcda * dadz* self.network["weights"][l][n][n2]
                         gradients["activations"][l+1][n2] += dcda_next_comp
-                        
-
                 # Change in cost to change in biases
                 dzdb = 1
                 dcdb = dcda * dadz * dzdb
-
                 gradients["biases"][l][n] = dcdb
-        
+
+            # for n2 in range(len(activations[l+1])):
+            #     dzda = self.network["weights"][l][n][n2]
+            #     for n in range(len(activations[l])):
+            #         dcda = gradients["activations"][l][n]
+            #         dadz = self.sigmoid_deriv(z_vals[l][n])
+            #         if(l!=2):
+            #             gradients["activations"][l+1][n2] += dzda*dcda*dadz
+
+        # print(gradients)
+        return gradients["weights"], gradients["biases"]
+
+    def backprop(self, input, groundTruth):
+        act = np.copy(input)
+        activations = [input]
+        z_vals = []
+        gradients = {"weights": [], "biases": []}        
+
+        # create placeholder for gradient data, calc activation
+        for l in range(2, -1, -1):            
+            curWeight = self.network["weights"][l]
+            curBias = self.network["biases"][l]
+
+            z = np.add( np.matmul(act, np.transpose(curWeight)), curBias)
+            act = self.sigmoid(z)
+            activations.insert(0, act)
+            z_vals.insert(0, z)
+
+            gradients["weights"].insert(0, np.zeros_like(curWeight))
+            gradients["biases"].insert(0, np.zeros_like(curBias))
+
+        gradients["biases"][0] = 2*np.multiply(np.subtract(activations[0],groundTruth), self.sigmoid_deriv(z_vals[0]))    
+
+        for l in range(2):
+            gradients["biases"][l+1] = np.multiply( np.matmul(np.transpose(self.network["weights"][l]),gradients["biases"][l]) , self.sigmoid_deriv(z_vals[l+1]))
+       
+        for l in range(3):   
+            for n in range(len(activations[l])):
+                for n2 in range(len(activations[l+1])):
+                    gradients["weights"][l][n][n2] = activations[l+1][n2] * gradients["biases"][l][n]
+
         return gradients["weights"], gradients["biases"]
 
     def train(self, epochs, batchSize, learningRate):
@@ -126,30 +159,39 @@ class Network:
             inputs, groundTruths = loadData(batchSize)
 
             # Creating placeholder sum arrays
-            l1 = np.zeros((3,2))
-            l2 = np.zeros((2,3))
-            l3 = np.zeros((3,4))
+            l1 = np.zeros((3,20))
+            l2 = np.zeros((20,30))
+            l3 = np.zeros((30,4))
 
             mean_weight_grad = [l1, l2, l3]
 
             l1 = np.zeros(3)
-            l2 = np.zeros(2)
-            l3 = np.zeros(3)
+            l2 = np.zeros(20)
+            l3 = np.zeros(30)
 
             mean_bias_grad = [l1, l2, l3]
+            
+            
+            if i%200 == 0:
+                store = []
+                for j in range(batchSize):
+                    store.append(self.cost(groundTruths[0],self.evaluate(inputs[0])))
+                print("Step:", i, "Loss:", np.mean(store))
 
             # Calculating average gradients
             for j in range(batchSize):
                 cur_weights, cur_biases = self.backprop(inputs[j], groundTruths[j])
-                
                 for l in range(3):
-                    mean_weight_grad[l] = np.add(mean_weight_grad[l], cur_weights[l]) /batchSize 
-                    mean_bias_grad[l] = np.add(mean_bias_grad[l], cur_biases[l]) / batchSize
+                    mean_weight_grad[l] = np.add(mean_weight_grad[l], cur_weights[l]/batchSize ) 
+                    
+                    mean_bias_grad[l] = np.add(mean_bias_grad[l], cur_biases[l]/ batchSize) 
 
+                    
             # Apply gradients
             for l in range(3):
-                self.network["weights"][l] = np.subtract(self.network["weights"][l], mean_weight_grad[l]) * learningRate
-                self.network["biases"][l] = np.subtract(self.network["biases"][l], mean_bias_grad[l]) * learningRate
+                
+                self.network["weights"][l] = np.subtract(self.network["weights"][l], mean_weight_grad[l]* learningRate) 
+                self.network["biases"][l] = np.subtract(self.network["biases"][l], mean_bias_grad[l]* learningRate) 
 
     def test(self):
         inputs, groundTruths = loadData(30, "iris_test.csv")
@@ -170,21 +212,14 @@ def test():
 
     print(nt.test())
 
-    nt.train(2000, 40, 1)
+    nt.train(10000, 20, 0.05)
     
     print(nt.test())
-    
-    # print(nt.network)
-    # act = nt.evaluate([6.4,2.8,5.6,2.2])
-    # print(act)
-    # print(nt.cost(
-    #     [0, 0, 1],
-    #     act
-    # ))
+   
 
-    # gradient = nt.backprop([6.4,2.8,5.6,2.2], [0, 0, 1])
-
-    # print(gradient)
+    # gradW,gradB = nt.backprop([6.4,2.8,5.6,2.2], [0, 0, 1])
+    # print(gradW,"\n","\n",gradB)
+ 
 
 if __name__ == "__main__":
     test()
