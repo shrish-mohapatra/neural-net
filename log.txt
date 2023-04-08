@@ -1,0 +1,9 @@
+time taken to generate step 0: 1.544863224029541
+time taken to generate step 1: 1.4354007244110107
+time taken to generate step 2: 1.4572725296020508
+time taken to generate step 3: 1.9134788513183594
+time taken to generate step 4: 2.836339235305786
+time taken to generate step 5: 1.9931681156158447
+time taken to generate step 6: 1.51528000831604
+time taken to generate step 7: 1.5685279369354248
+time taken to generate step 8: 1.7534637451171875
